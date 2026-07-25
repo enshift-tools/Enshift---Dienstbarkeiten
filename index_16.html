@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Dienstbarkeiten Tracker – Enshift</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg:#FFFFFF;
+    --ink:#1F2B23;
+    --ink-soft:#657366;
+    --line:#E4E7E1;
+    --green:#2F8F5B;
+    --green-dark:#236C45;
+    --green-pale:#EAF6EF;
+    --green-border:#BFE3CC;
+    --danger:#B3452F;
+    --danger-pale:#F7E6E1;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;}
+  input,textarea,select,button{font-family:'Inter',sans-serif;}
+
+  /* ---------- Login ---------- */
+  #login-screen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:var(--green-pale);
+  }
+  .login-card{
+    background:#fff;border:1px solid var(--green-border);border-radius:12px;
+    padding:40px 36px;max-width:380px;width:100%;text-align:center;
+    box-shadow:0 4px 24px rgba(47,143,91,0.08);
+  }
+  .login-card h1{font-family:'Space Grotesk',sans-serif;font-size:22px;margin:0 0 6px;}
+  .login-card p{color:var(--ink-soft);font-size:13px;margin:0 0 22px;}
+  .login-card input{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;
+    font-size:14px;margin-bottom:12px;
+  }
+  .login-card input:focus{outline:none;border-color:var(--green);}
+  .login-card button{
+    width:100%;background:var(--green);color:#fff;border:none;border-radius:6px;
+    padding:11px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;
+  }
+  .login-card button:hover{background:var(--green-dark);}
+  .login-msg{font-size:12px;margin-top:14px;color:var(--ink-soft);}
+  .login-msg.error{color:var(--danger);}
+  .login-msg.success{color:var(--green-dark);}
+
+  /* ---------- App shell ---------- */
+  #app{display:none;min-height:100vh;flex-direction:column;}
+  header.topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;border-bottom:1px solid var(--line);background:#fff;
+    position:sticky;top:0;z-index:20;
+  }
+  .brand{display:flex;flex-direction:column;}
+  .brand h1{font-family:'Space Grotesk',sans-serif;font-size:19px;margin:0;letter-spacing:-0.01em;}
+  .brand .sub{font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
+  .topbar-right{display:flex;align-items:center;gap:14px;}
+  .logo-mark{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;
+    color:var(--green-dark);border:1.5px solid var(--green);border-radius:6px;
+    padding:4px 10px;letter-spacing:0.02em;
+  }
+  .who-badge{font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
+  .btn{
+    border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 13px;
+    font-size:12.5px;cursor:pointer;color:var(--ink);transition:all .12s;
+  }
+  .btn:hover{border-color:var(--green);color:var(--green-dark);}
+  .btn-solid{background:var(--green);color:#fff;border-color:var(--green);}
+  .btn-solid:hover{background:var(--green-dark);}
+  .save-flag{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--green-dark);opacity:0;transition:opacity .3s;}
+  .save-flag.show{opacity:1;}
+
+  /* ---------- Zusammenfassung ---------- */
+  .summary-wrap{padding:20px 28px 6px;}
+  .summary-title{font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--ink-soft);
+    text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;}
+  .summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;}
+  .summary-card{
+    border:1px solid var(--green-border);border-radius:10px;background:var(--green-pale);
+    padding:14px 16px;cursor:pointer;
+  }
+  .summary-card h3{margin:0 0 2px;font-size:13.5px;font-family:'Space Grotesk',sans-serif;color:var(--ink);}
+  .summary-card .count{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--green-dark);}
+  .summary-list{margin-top:10px;border-top:1px dashed var(--green-border);padding-top:8px;display:none;}
+  .summary-card.open .summary-list{display:block;}
+  .summary-list-item{
+    font-size:12.5px;padding:5px 6px;border-radius:4px;cursor:pointer;
+  }
+  .summary-list-item:hover{background:#fff;}
+
+  /* ---------- Search ---------- */
+  .search-wrap{padding:14px 28px;}
+  .search-wrap input{
+    width:100%;padding:10px 14px;border:1px solid var(--line);border-radius:8px;
+    font-size:13.5px;
+  }
+  .search-wrap input:focus{outline:none;border-color:var(--green);}
+
+  /* ---------- Main layout ---------- */
+  .main-layout{display:flex;flex:1;gap:0;padding:0 28px 40px;align-items:flex-start;}
+  .proj-list{
+    width:280px;flex:none;border:1px solid var(--line);border-radius:10px;
+    overflow:hidden;position:sticky;top:90px;
+  }
+  .proj-list-head{
+    padding:10px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;
+  }
+  .proj-list-head span{font-size:12px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
+  .proj-items{max-height:70vh;overflow-y:auto;}
+  .proj-item{
+    padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer;
+    border-left:3px solid transparent;
+  }
+  .proj-item:hover{background:var(--green-pale);}
+  .proj-item.active{background:var(--green-pale);border-left-color:var(--green);}
+  .proj-item .name{font-size:13.5px;font-weight:600;}
+  .proj-item .meta{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+  .status-pill{
+    display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;margin-top:4px;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .status-offen{background:#EFEFEA;color:#6b6b60;}
+  .status-db_abgeschlossen{background:var(--green-pale);color:var(--green-dark);}
+  .status-followup_notar{background:#FDEFE6;color:#A15A20;}
+  .status-followup_kunde{background:#E9EEFB;color:#31519C;}
+
+  .detail-panel{flex:1;padding:0 0 0 24px;min-width:0;}
+  .empty-detail{
+    border:1px dashed var(--green-border);border-radius:10px;padding:60px 20px;
+    text-align:center;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;font-size:13px;
+  }
+
+  .card{
+    border:1px solid var(--green-border);border-radius:10px;margin-bottom:16px;overflow:hidden;
+  }
+  .card-head{
+    background:var(--green-pale);padding:12px 16px;font-family:'Space Grotesk',sans-serif;
+    font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center;
+  }
+  .card-body{padding:16px;}
+  .field-row{margin-bottom:12px;}
+  .field-row label{display:block;font-size:11.5px;color:var(--ink-soft);margin-bottom:4px;font-family:'JetBrains Mono',monospace;}
+  .field-row input[type=text], .field-row input[type=email], .field-row input[type=date], .field-row input[type=url], .field-row textarea, .field-row select{
+    width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13.5px;background:#fff;color:var(--ink);
+  }
+  .field-row textarea{resize:vertical;min-height:50px;}
+  textarea.autosize{
+    resize:none;overflow:hidden;min-height:38px;line-height:1.4;
+    font-family:'Inter',sans-serif;
+  }
+  .field-row input:focus, .field-row textarea:focus, .field-row select:focus{outline:none;border-color:var(--green);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  @media (max-width:700px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+  .yn-toggle{display:flex;gap:8px;margin-bottom:4px;}
+  .yn-btn{
+    flex:1;text-align:center;padding:8px;border:1px solid var(--line);border-radius:6px;
+    font-size:12.5px;cursor:pointer;background:#fff;
+  }
+  .yn-btn.active-ja{background:var(--green);color:#fff;border-color:var(--green);}
+  .yn-btn.active-nein{background:#F2E3DE;color:var(--danger);border-color:var(--danger);}
+  .yn-btn.active-nn{background:#EFEFEA;color:var(--ink-soft);border-color:var(--line);}
+
+  .checkline{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;}
+  .checkline input[type=checkbox]{width:16px;height:16px;accent-color:var(--green);cursor:pointer;}
+
+  .subblock{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;background:#FCFDFC;}
+  .subblock h4{margin:0 0 8px;font-size:12.5px;font-family:'Space Grotesk',sans-serif;color:var(--green-dark);}
+
+  .plan-tabs, .contract-block{margin-bottom:14px;}
+  .plan-cat-title{font-size:12.5px;font-weight:700;color:var(--ink);margin:10px 0 6px;font-family:'Space Grotesk',sans-serif;}
+
+  .req-item{display:flex;align-items:center;gap:8px;padding:4px 0;}
+  .req-item input[type=text]{flex:1;border:none;border-bottom:1px dashed var(--line);padding:3px 2px;font-size:12.5px;background:transparent;}
+  .req-item input[type=text]:focus{outline:none;border-bottom-color:var(--green);}
+  .link-btn{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px;}
+  .link-btn:hover{color:var(--danger);}
+  .add-link{color:var(--green-dark);font-size:12px;cursor:pointer;background:none;border:none;padding:4px 0;font-weight:600;}
+  .link-field-wrap{display:flex;gap:6px;align-items:center;}
+  .link-field-wrap input{flex:1;}
+  .open-link-btn{
+    flex:none;background:var(--green-pale);border:1px solid var(--green-border);color:var(--green-dark);
+    border-radius:6px;width:38px;height:38px;cursor:pointer;font-size:14px;transition:background .12s;
+  }
+  .open-link-btn:hover{background:var(--green-border);}
+  .label-edit{
+    display:block;width:100%;font-size:11.5px;color:var(--ink-soft);margin-bottom:4px;
+    font-family:'JetBrains Mono',monospace;border:none;background:transparent;padding:0;
+  }
+  .label-edit:focus{outline:none;border-bottom:1px dashed var(--green);}
+  .label-edit::placeholder{color:#B7B2A2;}
+  .add-link:hover{text-decoration:underline;}
+
+  .comment{border-bottom:1px dashed var(--line);padding:8px 0;font-size:13px;}
+  .comment .c-meta{font-size:10.5px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;margin-bottom:2px;}
+  .comment-add{display:flex;gap:8px;margin-top:8px;}
+  .comment-add input{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
+
+  .weitere-item{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-bottom:8px;}
+  .weitere-item input[type=text]{flex:1;border:none;background:transparent;font-size:13px;}
+  .weitere-item input[type=text]:focus{outline:none;}
+  .weitere-label{font-size:11px;color:var(--ink-soft);width:90px;flex:none;}
+
+  .danger-btn{background:none;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;}
+  .danger-btn:hover{background:var(--danger-pale);}
+
+  a.doc-link{color:var(--green-dark);font-size:12px;text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Dienstbarkeiten Tracker</h1>
+    <p>Zugang nur für Enshift-Mitarbeitende (@enshift.com)</p>
+    <input type="email" id="login-email" placeholder="name@enshift.com">
+    <input type="password" id="login-password" placeholder="Passwort">
+    <button id="login-btn">Anmelden</button>
+    <button id="signup-btn" style="background:#fff;color:var(--green-dark);border:1px solid var(--green);margin-top:8px;">Neues Konto erstellen</button>
+    <div class="login-msg" id="login-msg"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Dienstbarkeiten Tracker</h1>
+      <div class="sub">Enshift · interner Projektüberblick</div>
+    </div>
+    <div class="topbar-right">
+      <span class="save-flag" id="save-flag">gespeichert</span>
+      <span class="who-badge" id="who-badge"></span>
+      <button class="btn" id="export-btn">Excel-Export</button>
+      <button class="btn" id="logout-btn">Abmelden</button>
+      <div class="logo-mark">enshift</div>
+    </div>
+  </header>
+
+  <div class="summary-wrap">
+    <div class="summary-title">Zusammenfassung</div>
+    <div class="summary-grid" id="summary-grid"></div>
+  </div>
+
+  <div class="search-wrap">
+    <input type="text" id="search-input" placeholder="Projekt suchen (Adresse, ZIP, Parzelle, Kunde)…">
+  </div>
+
+  <div class="main-layout">
+    <div class="proj-list">
+      <div class="proj-list-head">
+        <span id="proj-count">0 Projekte</span>
+        <button class="btn btn-solid" id="add-proj-btn">+ Neu</button>
+      </div>
+      <div class="proj-items" id="proj-items"></div>
+    </div>
+    <div class="detail-panel" id="detail-panel">
+      <div class="empty-detail">Wähle links ein Projekt aus oder erstelle ein neues.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const SUPABASE_URL = 'https://siojnrggdqbcarbuykcz.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_jTHVjUHmXwSm1S_c5HxPfg_CwdnlC_e';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const PLAN_CATEGORIES = ['PV','Heizung','Batterie'];
+  const TECH_FLAG = { PV:'hasPV', Heizung:'hasHeizung', Batterie:'hasBatterie' };
+  const VOLLMACHT_FIELDS = [
+    ['name','Name'],
+    ['geburtsdatum','Geburtsdatum'],
+    ['adresse','Adresse'],
+    ['nationalitaet','Nationalität'],
+    ['buergerort','Bürgerort (bei CH-Staatsangehörigen)'],
+    ['pass','Pass (bei ausländischen Staatsangehörigen)'],
+    ['idPass','ID/Pass (bei CH-Staatsangehörigen)'],
+    ['unterschrift','Unterschrift']
+  ];
+  const CATEGORY_VERTRAG_FIELDS = {
+    PV: [['dachnutzungsvertrag','Dachnutzungsvertrag'], ['stromlieferungsvertrag','Stromlieferungsvertrag']],
+    Heizung: [['waermelieferungsvertrag','Wärmelieferungsvertrag']],
+    Batterie: [['batterienutzungsvertrag','Batterienutzungsvertrag']]
+  };
+  const CLOSED_STATUS_KEY = 'gebaeude_verkauft_db_eruebrigt';
+  const DEFAULT_STATUSES = [
+    ['offen','Offen'],
+    ['db_abgeschlossen','DB abgeschlossen'],
+    ['followup_notar','Follow-up mit Notar'],
+    ['followup_kunde','Follow-up mit Kunde'],
+    [CLOSED_STATUS_KEY,'Gebäude verkauft - DB erübrigt']
+  ];
+
+  let state = { projects: [], customStatuses: [] };
+
+  function allStatuses(){ return DEFAULT_STATUSES.concat(state.customStatuses||[]); }
+  function statusLabelFor(key){
+    const found = allStatuses().find(s=>s[0]===key);
+    return found ? found[1] : key;
+  }
+  function statusColor(key){
+    if(key === 'db_abgeschlossen') return ['#E1F3E8','#1E7A46'];
+    if(key === CLOSED_STATUS_KEY) return ['#FBE4E1','#B3342A'];
+    return ['#FDF2D3','#8A6D1A'];
+  }
+  function slugify(label){
+    return 'custom_' + label.trim().toLowerCase()
+      .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+      .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') + '_' + uid();
+  }
+  function addCustomStatus(){
+    const label = prompt('Name des neuen Status (z.B. "Gebäude verkauft - DB erübrigt"):');
+    if(!label || !label.trim()) return;
+    const key = slugify(label);
+    state.customStatuses.push([key, label.trim()]);
+    saveBoard();
+    return key;
+  }
+  let selectedId = null;
+  let forceShowSections = false;
+  let searchQuery = '';
+  let openSummary = {};
+  let currentUser = null;
+  let pollTimer = null;
+
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+  function nowLabel(){
+    const d = new Date();
+    return d.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + d.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+  }
+  function escapeHtml(str){
+    return String(str==null?'':str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function escapeAttr(str){ return escapeHtml(str).replace(/"/g,'&quot;'); }
+
+  function emptyVollmachtPerson(){
+    return { name:false, geburtsdatum:false, adresse:false, nationalitaet:false, buergerort:false, pass:false, idPass:false, unterschrift:false, link:'' };
+  }
+  function newProject(adresse){
+    return {
+      id: uid(),
+      adresse: adresse || 'Neues Projekt',
+      zip:'', parzelle:'', grundbuchamt:'', notariat:'', leistung:'', dauervertragStart:'', dauervertragEnde:'', kunde:'',
+      hasPV:true, hasHeizung:true, hasBatterie:true,
+      status:'offen',
+      workflow:{
+        startmail:'noch_nicht',
+        eigentuemerInformieren:{ status:'noch_nicht', email:'', kontakt:'' },
+        vollmacht:{ vollmachtgeber: emptyVollmachtPerson(), bevollmaechtigte: emptyVollmachtPerson() },
+        dienstbarkeitstyp:{ persoenlich:false, baurecht:false, kommentar:'' },
+        plaene: Object.fromEntries(PLAN_CATEGORIES.map(c=>[c,{status:'', link:'', anforderungen:[]}])),
+        vertraege: Object.fromEntries(PLAN_CATEGORIES.map(c=>{
+          const obj = {};
+          CATEGORY_VERTRAG_FIELDS[c].forEach(([fk])=>{ obj[fk] = {checked:false,datum:'',link:''}; });
+          obj.nachtrag = {checked:false, art:'', datum:'', link:''};
+          return [c, obj];
+        }))
+      },
+      weiterePunkte: [],
+      extraFields: {},
+      comments: []
+    };
+  }
+
+  function getPath(obj, path){
+    return path.split('.').reduce((o,k)=> (o==null? undefined : o[k]), obj);
+  }
+  function setPath(obj, path, value){
+    const parts = path.split('.');
+    let cur = obj;
+    for(let i=0;i<parts.length-1;i++) cur = cur[parts[i]];
+    cur[parts[parts.length-1]] = value;
+  }
+  function getProject(id){ return state.projects.find(p=>p.id===id); }
+
+  /* ---------------- Auth ---------------- */
+  function isAllowed(user){
+    return user && user.email && user.email.toLowerCase().endsWith('@enshift.com');
+  }
+
+  async function initAuth(){
+    const { data:{ session } } = await sb.auth.getSession();
+    handleSession(session);
+    sb.auth.onAuthStateChange((_event, session)=>{ handleSession(session); });
+  }
+
+  function handleSession(session){
+    if(session && session.user && isAllowed(session.user)){
+      currentUser = session.user;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      document.getElementById('who-badge').textContent = currentUser.email;
+      startApp();
+    } else if(session && session.user && !isAllowed(session.user)){
+      const msg = document.getElementById('login-msg');
+      msg.textContent = 'Dieses Konto ist nicht für @enshift.com registriert. Zugriff verweigert.';
+      msg.className = 'login-msg error';
+      sb.auth.signOut();
+    } else {
+      currentUser = null;
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
+      if(pollTimer) clearInterval(pollTimer);
+    }
+  }
+
+  function validateEmailField(){
+    const email = document.getElementById('login-email').value.trim();
+    const msg = document.getElementById('login-msg');
+    if(!email.toLowerCase().endsWith('@enshift.com')){
+      msg.textContent = 'Bitte eine @enshift.com E-Mail-Adresse verwenden.';
+      msg.className = 'login-msg error';
+      return null;
+    }
+    return email;
+  }
+
+  document.getElementById('login-btn').addEventListener('click', async ()=>{
+    const email = validateEmailField();
+    if(!email) return;
+    const password = document.getElementById('login-password').value;
+    const msg = document.getElementById('login-msg');
+    msg.textContent = 'Anmeldung läuft…';
+    msg.className = 'login-msg';
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if(error){
+      msg.textContent = 'Fehler: ' + error.message;
+      msg.className = 'login-msg error';
+    }
+  });
+
+  document.getElementById('signup-btn').addEventListener('click', async ()=>{
+    const email = validateEmailField();
+    if(!email) return;
+    const password = document.getElementById('login-password').value;
+    const msg = document.getElementById('login-msg');
+    if(!password || password.length < 6){
+      msg.textContent = 'Passwort muss mindestens 6 Zeichen haben.';
+      msg.className = 'login-msg error';
+      return;
+    }
+    msg.textContent = 'Konto wird erstellt…';
+    msg.className = 'login-msg';
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if(error){
+      msg.textContent = 'Fehler: ' + error.message;
+      msg.className = 'login-msg error';
+    } else if(data.session){
+      msg.textContent = 'Konto erstellt, du bist angemeldet.';
+      msg.className = 'login-msg success';
+    } else {
+      msg.textContent = 'Konto erstellt. Falls eine Bestätigung nötig ist, wende dich an den Admin.';
+      msg.className = 'login-msg success';
+    }
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', ()=> sb.auth.signOut());
+
+  /* ---------------- Data ---------------- */
+  function isEditingDetail(){
+    const active = document.activeElement;
+    const panel = document.getElementById('detail-panel');
+    if(!active || !panel) return false;
+    const tag = active.tagName;
+    return panel.contains(active) && (tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT');
+  }
+
+  async function loadBoard(){
+    const { data, error } = await sb.from('board').select('data').eq('id','main').single();
+    if(error){ console.error('Ladefehler', error); return; }
+    if(isEditingDetail()){
+      // Nicht die Eingabe unterbrechen – beim nächsten Poll erneut versuchen.
+      return;
+    }
+    state.projects = (data && data.data && data.data.projects) || [];
+    state.customStatuses = (data && data.data && data.data.customStatuses) || [];
+    render();
+  }
+
+  let saveTimer = null;
+  async function saveBoard(){
+    const { error } = await sb.from('board')
+      .update({ data:{ projects: state.projects, customStatuses: state.customStatuses }, updated_at: new Date().toISOString() })
+      .eq('id','main');
+    const flag = document.getElementById('save-flag');
+    if(error){ console.error('Speicherfehler', error); return; }
+    flag.classList.add('show');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(()=>flag.classList.remove('show'), 1000);
+  }
+
+  function startApp(){
+    loadBoard();
+    if(pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(loadBoard, 5000);
+  }
+
+  /* ---------------- Actions ---------------- */
+  function addProject(){
+    const p = newProject('Neues Projekt');
+    state.projects.push(p);
+    selectedId = p.id;
+    saveBoard();
+    render();
+  }
+  function deleteProject(id){
+    if(!confirm('Dieses Projekt endgültig löschen?')) return;
+    state.projects = state.projects.filter(p=>p.id!==id);
+    if(selectedId===id) selectedId = null;
+    saveBoard();
+    render();
+  }
+  function selectProject(id){
+    selectedId = id;
+    forceShowSections = false;
+    render();
+    const el = document.querySelector('.proj-item[data-id="'+id+'"]');
+    if(el) el.scrollIntoView({block:'nearest'});
+  }
+
+  function addAnforderung(projId, cat){
+    const p = getProject(projId);
+    p.workflow.plaene[cat].anforderungen.push({id:uid(), label:'', vorhanden:false});
+    saveBoard(); render();
+  }
+  function removeAnforderung(projId, cat, idx){
+    const p = getProject(projId);
+    p.workflow.plaene[cat].anforderungen.splice(idx,1);
+    saveBoard(); render();
+  }
+  function defaultExtraValue(typ){
+    if(typ==='checkbox') return false;
+    if(typ==='vertrag') return {checked:false, datum:'', link:''};
+    return '';
+  }
+  function addSectionField(projId, section, typ){
+    const p = getProject(projId);
+    if(!p.extraFields) p.extraFields = {};
+    if(!p.extraFields[section]) p.extraFields[section] = [];
+    p.extraFields[section].push({id:uid(), typ, label:'', wert: defaultExtraValue(typ)});
+    saveBoard(); render();
+  }
+  function removeSectionField(projId, section, idx){
+    const p = getProject(projId);
+    p.extraFields[section].splice(idx,1);
+    saveBoard(); render();
+  }
+  function addWeiterePunkt(projId, typ){
+    const p = getProject(projId);
+    p.weiterePunkte.push({id:uid(), typ, label:'', wert: defaultExtraValue(typ)});
+    saveBoard(); render();
+  }
+  function removeWeiterePunkt(projId, idx){
+    const p = getProject(projId);
+    p.weiterePunkte.splice(idx,1);
+    saveBoard(); render();
+  }
+  function addComment(projId, text){
+    if(!text || !text.trim()) return;
+    const p = getProject(projId);
+    p.comments.push({id:uid(), author: currentUser.email, text: text.trim(), when: nowLabel()});
+    saveBoard(); render();
+  }
+  function removeComment(projId, commentId){
+    const p = getProject(projId);
+    p.comments = p.comments.filter(c=>c.id!==commentId);
+    saveBoard(); render();
+  }
+
+  /* ---------------- Render: summary ---------------- */
+  function computeSummary(){
+    const cards = [['alle','Projekt im Blick', state.projects]];
+    allStatuses().forEach(([key,label])=>{
+      if(key==='offen') return; // "Offen" ist der neutrale Default, keine eigene Übersichtsbox
+      cards.push([key, label, state.projects.filter(p=>p.status===key)]);
+    });
+    return cards;
+  }
+
+  function renderSummary(){
+    const cards = computeSummary();
+    const grid = document.getElementById('summary-grid');
+    grid.innerHTML = cards.map(([key,title,list])=>`
+      <div class="summary-card ${openSummary[key]?'open':''}" data-summary="${key}">
+        <h3>${escapeHtml(title)}</h3>
+        <div class="count">${list.length}</div>
+        <div class="summary-list">
+          ${list.length===0 ? '<div style="font-size:12px;color:var(--ink-soft)">Keine Projekte</div>' :
+            list.map(p=>`<div class="summary-list-item" data-goto="${p.id}">${escapeHtml(p.adresse)}${p.zip? ' · '+escapeHtml(p.zip):''}</div>`).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  /* ---------------- Render: list ---------------- */
+  function renderList(){
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = state.projects.filter(p=>{
+      if(!q) return true;
+      return [p.adresse,p.zip,p.parzelle,p.kunde].some(v=> (v||'').toLowerCase().includes(q));
+    });
+    document.getElementById('proj-count').textContent = filtered.length + ' Projekt' + (filtered.length===1?'':'e');
+    const wrap = document.getElementById('proj-items');
+    if(filtered.length===0){
+      wrap.innerHTML = '<div style="padding:16px;font-size:12.5px;color:var(--ink-soft)">Keine Projekte gefunden.</div>';
+      return;
+    }
+    wrap.innerHTML = filtered.map(p=>{
+      const statusLabel = statusLabelFor(p.status);
+      const [pillBg,pillFg] = statusColor(p.status);
+      return `
+      <div class="proj-item ${selectedId===p.id?'active':''}" data-id="${p.id}">
+        <div class="name">${escapeHtml(p.adresse || 'Neues Projekt')}</div>
+        <div class="meta">${escapeHtml(p.zip||'')} ${p.parzelle? '· Parz. '+escapeHtml(p.parzelle):''}</div>
+        <span class="status-pill" style="background:${pillBg};color:${pillFg};">${escapeHtml(statusLabel)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  /* ---------------- Render: detail ---------------- */
+  function ynToggle(path, current, labels){
+    labels = labels || ['ja','noch_nicht'];
+    return `
+      <div class="yn-toggle" data-ynpath="${path}">
+        ${labels.map(l=>`<div class="yn-btn ${current===l?('active-'+(l==='ja'?'ja':(l==='nein'?'nein':'nn'))):''}" data-yn="${l}">${l==='ja'?'Ja':(l==='nein'?'Nein':(l==='nicht_notwendig'?'Nicht notwendig':'Noch nicht'))}</div>`).join('')}
+      </div>`;
+  }
+
+  function linkFieldHtml(path, value){
+    const v = escapeAttr(value);
+    return `<div class="link-field-wrap"><input type="url" data-path="${path}" value="${v}" placeholder="https://…"><button type="button" class="open-link-btn" title="Link öffnen">↗</button></div>`;
+  }
+
+  function typLabel(t){ return t==='checkbox'?'Checkbox':(t==='link'?'Link':(t==='comment'?'Kommentar':(t==='datum'?'Datum':'Text'))); }
+
+  function renderCustomFieldItem(w, idx, removeAttr, valuePathPrefix){
+    const labelPath = `${valuePathPrefix}.${idx}.label`;
+    const valuePath = `${valuePathPrefix}.${idx}.wert`;
+    if(w.typ==='checkbox'){
+      return `
+        <label class="checkline" style="justify-content:space-between;">
+          <span style="display:flex;align-items:center;gap:8px;flex:1;">
+            <input type="checkbox" data-path="${valuePath}" ${w.wert?'checked':''}>
+            <input type="text" class="label-edit" style="margin:0;" data-path="${labelPath}" value="${escapeAttr(w.label)}" placeholder="Bezeichnung (frei wählbar)">
+          </span>
+          <button class="link-btn" ${removeAttr} title="Entfernen">✕</button>
+        </label>`;
+    }
+    if(w.typ==='vertrag'){
+      const val = w.wert || {checked:false,datum:'',link:''};
+      return `
+        <div class="grid3" style="align-items:end;margin-bottom:8px;position:relative;">
+          <label class="checkline">
+            <input type="checkbox" data-path="${valuePath}.checked" ${val.checked?'checked':''}>
+            <input type="text" class="label-edit" style="margin:0;" data-path="${labelPath}" value="${escapeAttr(w.label)}" placeholder="Bezeichnung (frei wählbar)">
+          </label>
+          <div class="field-row" style="margin:0;"><label>Unterschriftsdatum</label><input type="date" data-path="${valuePath}.datum" value="${escapeAttr(val.datum)}"></div>
+          <div class="field-row" style="margin:0;"><label>Link</label>${linkFieldHtml(valuePath+'.link', val.link)}</div>
+          <button class="link-btn" ${removeAttr} style="position:absolute;top:-4px;right:-4px;" title="Entfernen">✕</button>
+        </div>`;
+    }
+    let valueHtml;
+    if(w.typ==='comment'){
+      valueHtml = `<textarea data-path="${valuePath}">${escapeHtml(w.wert)}</textarea>`;
+    } else if(w.typ==='datum'){
+      valueHtml = `<input type="date" data-path="${valuePath}" value="${escapeAttr(w.wert)}">`;
+    } else if(w.typ==='link'){
+      valueHtml = linkFieldHtml(valuePath, w.wert);
+    } else {
+      valueHtml = `<input type="text" data-path="${valuePath}" value="${escapeAttr(w.wert)}">`;
+    }
+    return `
+      <div class="field-row" style="position:relative;">
+        <input type="text" class="label-edit" data-path="${labelPath}" value="${escapeAttr(w.label)}" placeholder="Bezeichnung (frei wählbar)">
+        ${valueHtml}
+        <button class="link-btn" ${removeAttr} style="position:absolute;top:0;right:0;" title="Entfernen">✕</button>
+      </div>`;
+  }
+
+  function renderSectionFields(proj, section){
+    const list = (proj.extraFields && proj.extraFields[section]) || [];
+    return `
+      <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);">
+        ${list.map((w,idx)=>renderCustomFieldItem(w, idx, `data-remove-sfield="${section}::${idx}"`, `extraFields.${section}`)).join('')}
+        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap;">
+          <button class="add-link" data-add-sfield="${section}::checkbox">+ Checkbox</button>
+          <button class="add-link" data-add-sfield="${section}::text">+ Textfeld</button>
+          <button class="add-link" data-add-sfield="${section}::link">+ Link</button>
+          <button class="add-link" data-add-sfield="${section}::comment">+ Kommentar</button>
+          <button class="add-link" data-add-sfield="${section}::datum">+ Datum</button>
+          <button class="add-link" data-add-sfield="${section}::vertrag">+ Vertragseintrag (Checkbox+Datum+Link)</button>
+        </div>
+      </div>`;
+  }
+
+  function renderVollmachtPerson(proj, key, title){
+    const person = proj.workflow.vollmacht[key];
+    return `
+      <div class="subblock">
+        <h4>${title}</h4>
+        ${VOLLMACHT_FIELDS.map(([fk,label])=>`
+          <label class="checkline">
+            <input type="checkbox" data-path="workflow.vollmacht.${key}.${fk}" ${person[fk]?'checked':''}>
+            ${label}
+          </label>
+        `).join('')}
+        <div class="field-row" style="margin-top:8px;">
+          <label>Link zum Ausweis/Pass</label>
+          ${linkFieldHtml(`workflow.vollmacht.${key}.link`, person.link)}
+        </div>
+        ${renderSectionFields(proj, 'vollmacht_'+key)}
+      </div>`;
+  }
+
+  function renderPlaeneCategory(proj, cat){
+    if(proj[TECH_FLAG[cat]] === false){
+      return `
+        <div class="subblock" style="opacity:.55;">
+          <h4>${cat}</h4>
+          <div style="font-size:12px;color:var(--ink-soft);">Für dieses Projekt nicht relevant (siehe Checkbox „Relevante Technologien“ oben).</div>
+        </div>`;
+    }
+    const plan = proj.workflow.plaene[cat];
+    return `
+      <div class="subblock">
+        <h4>${cat}</h4>
+        ${ynToggle('workflow.plaene.'+cat+'.status', plan.status, ['ja','nein','nicht_notwendig'])}
+        <div class="field-row" style="margin-top:8px;">
+          <label>Link zum Plan</label>
+          ${linkFieldHtml(`workflow.plaene.${cat}.link`, plan.link)}
+        </div>
+        ${plan.status==='ja' ? `
+          <div style="margin-top:10px;">
+            <label style="font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;">Vom Notariat verlangte Unterlagen</label>
+            ${plan.anforderungen.map((a,idx)=>`
+              <div class="req-item">
+                <input type="checkbox" data-path="workflow.plaene.${cat}.anforderungen.${idx}.vorhanden" ${a.vorhanden?'checked':''}>
+                <input type="text" data-path="workflow.plaene.${cat}.anforderungen.${idx}.label" value="${escapeAttr(a.label)}" placeholder="Bezeichnung der Unterlage">
+                <button class="link-btn" data-remove-req="${cat}:${idx}" title="Entfernen">✕</button>
+              </div>
+            `).join('')}
+            <button class="add-link" data-add-req="${cat}">+ Unterlage hinzufügen</button>
+          </div>
+        ` : ''}
+        ${renderSectionFields(proj, 'plaene_'+cat)}
+      </div>`;
+  }
+
+  function renderVertraegeCategory(proj, cat){
+    if(proj[TECH_FLAG[cat]] === false){
+      return `
+        <div class="subblock" style="opacity:.55;">
+          <h4>${cat}</h4>
+          <div style="font-size:12px;color:var(--ink-soft);">Für dieses Projekt nicht relevant (siehe Checkbox „Relevante Technologien“ oben).</div>
+        </div>`;
+    }
+    const v = proj.workflow.vertraege[cat];
+    const fields = CATEGORY_VERTRAG_FIELDS[cat];
+    fields.forEach(([fk])=>{ if(!v[fk]) v[fk] = {checked:false,datum:'',link:''}; });
+    return `
+      <div class="subblock">
+        <h4>${cat}</h4>
+        ${fields.map(([fk,label])=>`
+          <div class="grid3" style="align-items:end;margin-bottom:8px;">
+            <label class="checkline"><input type="checkbox" data-path="workflow.vertraege.${cat}.${fk}.checked" ${v[fk].checked?'checked':''}>${label}</label>
+            <div class="field-row" style="margin:0;"><label>Unterschriftsdatum</label><input type="date" data-path="workflow.vertraege.${cat}.${fk}.datum" value="${escapeAttr(v[fk].datum)}"></div>
+            <div class="field-row" style="margin:0;"><label>Link</label>${linkFieldHtml(`workflow.vertraege.${cat}.${fk}.link`, v[fk].link)}</div>
+          </div>
+        `).join('')}
+        ${renderSectionFields(proj, 'vertraege_'+cat)}
+      </div>`;
+  }
+
+  function renderWeiterePunkte(proj){
+    return `
+      <div class="card">
+        <div class="card-head">Weitere Punkte</div>
+        <div class="card-body">
+          ${proj.weiterePunkte.map((w,idx)=>renderCustomFieldItem(w, idx, `data-remove-weitere="${idx}"`, 'weiterePunkte')).join('')}
+          <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;">
+            <button class="add-link" data-add-weitere="checkbox">+ Checkbox</button>
+            <button class="add-link" data-add-weitere="text">+ Textfeld</button>
+            <button class="add-link" data-add-weitere="link">+ Link</button>
+            <button class="add-link" data-add-weitere="comment">+ Kommentar</button>
+            <button class="add-link" data-add-weitere="datum">+ Datum</button>
+            <button class="add-link" data-add-weitere="vertrag">+ Vertragseintrag (Checkbox+Datum+Link)</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function migrateNachtragIfNeeded(proj){
+    let changed = false;
+    PLAN_CATEGORIES.forEach(cat=>{
+      const v = proj.workflow.vertraege[cat];
+      const n = v && v.nachtrag;
+      if(n && !n._migrated && (n.checked || n.art || n.datum || n.link)){
+        if(!proj.extraFields) proj.extraFields = {};
+        const key = 'vertraege_'+cat;
+        if(!proj.extraFields[key]) proj.extraFields[key] = [];
+        proj.extraFields[key].push({
+          id: uid(),
+          typ: 'vertrag',
+          label: n.art || 'Nachtrag',
+          wert: { checked: !!n.checked, datum: n.datum || '', link: n.link || '' }
+        });
+        n._migrated = true;
+        changed = true;
+      }
+    });
+    if(changed) saveBoard();
+  }
+
+  function renderDetail(){
+    const panel = document.getElementById('detail-panel');
+    if(!selectedId){
+      panel.innerHTML = '<div class="empty-detail">Wähle links ein Projekt aus oder erstelle ein neues.</div>';
+      return;
+    }
+    const p = getProject(selectedId);
+    if(!p){ selectedId=null; panel.innerHTML='<div class="empty-detail">Projekt nicht gefunden.</div>'; return; }
+    migrateNachtragIfNeeded(p);
+    const wf = p.workflow;
+
+    const workflowSectionsHtml = `
+      <div class="card">
+        <div class="card-head">Startmail am Grundbuchamt oder Notariat</div>
+        <div class="card-body">
+          ${ynToggle('workflow.startmail', wf.startmail)}
+          ${renderSectionFields(p, 'startmail')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Eigentümer informieren</div>
+        <div class="card-body">
+          <p style="font-size:12.5px;color:var(--ink-soft);margin-top:0;">Der Kunde wurde über den Start des Dienstbarkeitsprozesses informiert.</p>
+          ${ynToggle('workflow.eigentuemerInformieren.status', wf.eigentuemerInformieren.status)}
+          <div class="grid2" style="margin-top:10px;">
+            <div class="field-row"><label>E-Mail des Kunden</label><input type="email" data-path="workflow.eigentuemerInformieren.email" value="${escapeAttr(wf.eigentuemerInformieren.email)}"></div>
+            <div class="field-row"><label>Kontakt (Name/Telefon)</label><textarea class="autosize" rows="1" data-path="workflow.eigentuemerInformieren.kontakt">${escapeHtml(wf.eigentuemerInformieren.kontakt)}</textarea></div>
+          </div>
+          ${renderSectionFields(p, 'eigentuemer')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Vollmacht</div>
+        <div class="card-body">
+          ${renderVollmachtPerson(p,'vollmachtgeber','Vollmachtgeber')}
+          ${renderVollmachtPerson(p,'bevollmaechtigte','Bevollmächtigte')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Dienstbarkeitstyp</div>
+        <div class="card-body">
+          <label class="checkline"><input type="checkbox" data-path="workflow.dienstbarkeitstyp.persoenlich" ${wf.dienstbarkeitstyp.persoenlich?'checked':''}> Persönliche Dienstbarkeit – DB im Sinne des Benutzungsrechts</label>
+          <label class="checkline"><input type="checkbox" data-path="workflow.dienstbarkeitstyp.baurecht" ${wf.dienstbarkeitstyp.baurecht?'checked':''}> Baurecht</label>
+          <div class="field-row" style="margin-top:8px;"><label>Kommentar</label><textarea data-path="workflow.dienstbarkeitstyp.kommentar">${escapeHtml(wf.dienstbarkeitstyp.kommentar)}</textarea></div>
+          ${renderSectionFields(p, 'dienstbarkeitstyp')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Pläne</div>
+        <div class="card-body">
+          ${PLAN_CATEGORIES.map(cat=>renderPlaeneCategory(p,cat)).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Verträge / Nachträge</div>
+        <div class="card-body">
+          ${PLAN_CATEGORIES.map(cat=>renderVertraegeCategory(p,cat)).join('')}
+        </div>
+      </div>
+
+      ${renderWeiterePunkte(p)}
+    `;
+
+    const isClosedStatus = p.status === CLOSED_STATUS_KEY;
+    const workflowBlockHtml = (isClosedStatus && !forceShowSections) ? `
+      <div class="card" style="border-style:dashed;">
+        <div class="card-body" style="text-align:center;padding:22px 16px;color:var(--ink-soft);">
+          <div style="font-size:13px;margin-bottom:10px;">Dieses Projekt ist als <strong>„Gebäude verkauft - DB erübrigt“</strong> markiert. Die Workflow-Abschnitte sind daher ausgeblendet – es fehlen keine Informationen.</div>
+          <button class="btn" id="show-sections-btn">Abschnitte trotzdem anzeigen</button>
+        </div>
+      </div>
+    ` : `
+      ${isClosedStatus ? `
+        <div class="card" style="border-style:dashed;">
+          <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;color:var(--ink-soft);font-size:12.5px;">
+            <span>Status: „Gebäude verkauft - DB erübrigt“ – Abschnitte werden trotzdem angezeigt.</span>
+            <button class="btn" id="hide-sections-btn">Wieder ausblenden</button>
+          </div>
+        </div>
+      ` : ''}
+      ${workflowSectionsHtml}
+    `;
+
+    panel.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <span>${escapeHtml(p.adresse||'Neues Projekt')}</span>
+          <button class="danger-btn" id="delete-proj-btn">Projekt löschen</button>
+        </div>
+        <div class="card-body">
+          <div class="grid3">
+            <div class="field-row"><label>Adresse</label><textarea class="autosize" rows="1" data-path="adresse">${escapeHtml(p.adresse)}</textarea></div>
+            <div class="field-row"><label>ZIP, Ort</label><input type="text" data-path="zip" value="${escapeAttr(p.zip)}"></div>
+            <div class="field-row"><label>Parzelle</label><input type="text" data-path="parzelle" value="${escapeAttr(p.parzelle)}"></div>
+          </div>
+          <div class="grid3">
+            <div class="field-row"><label>Grundbuchamt</label><textarea class="autosize" rows="1" data-path="grundbuchamt">${escapeHtml(p.grundbuchamt)}</textarea></div>
+            <div class="field-row"><label>Notariat</label><textarea class="autosize" rows="1" data-path="notariat">${escapeHtml(p.notariat)}</textarea></div>
+            <div class="field-row"><label>Leistung</label><textarea class="autosize" rows="1" data-path="leistung">${escapeHtml(p.leistung)}</textarea></div>
+          </div>
+          <div class="grid3">
+            <div class="field-row"><label>Dauervertrag – Beginn</label><input type="date" data-path="dauervertragStart" value="${escapeAttr(p.dauervertragStart)}"></div>
+            <div class="field-row"><label>Dauervertrag – Ende</label><input type="date" data-path="dauervertragEnde" value="${escapeAttr(p.dauervertragEnde)}"></div>
+            <div class="field-row"><label>Kunde (=Grundeigentümer)</label><textarea class="autosize" rows="1" data-path="kunde">${escapeHtml(p.kunde)}</textarea></div>
+            <div class="field-row"><label>Status</label>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <select data-path="status" style="flex:1;">
+                  ${allStatuses().map(([v,l])=>`<option value="${v}" ${p.status===v?'selected':''}>${l}</option>`).join('')}
+                </select>
+                <button class="btn" id="new-status-btn" title="Neuen Status hinzufügen" type="button" style="flex:none;padding:8px 10px;">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="field-row" style="margin-top:4px;">
+            <label>Relevante Technologien</label>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;">
+              <label class="checkline"><input type="checkbox" data-path="hasPV" ${p.hasPV!==false?'checked':''}> PV</label>
+              <label class="checkline"><input type="checkbox" data-path="hasHeizung" ${p.hasHeizung!==false?'checked':''}> Heizung</label>
+              <label class="checkline"><input type="checkbox" data-path="hasBatterie" ${p.hasBatterie!==false?'checked':''}> Batterie</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${workflowBlockHtml}
+
+      <div class="card">
+        <div class="card-head">Kommentare</div>
+        <div class="card-body">
+          ${p.comments.length===0 ? '<div style="font-size:12.5px;color:var(--ink-soft);">Noch keine Kommentare.</div>' :
+            p.comments.map(c=>`
+              <div class="comment">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                  <div class="c-meta">${escapeHtml(c.author)} · ${escapeHtml(c.when)}</div>
+                  <button class="link-btn" data-remove-comment="${c.id}" title="Kommentar löschen">✕</button>
+                </div>
+                <div style="white-space:pre-wrap;">${escapeHtml(c.text)}</div>
+              </div>
+            `).join('')}
+          <div class="comment-add">
+            <textarea id="new-comment-input" class="autosize" rows="1" placeholder="Kommentar schreiben – Enter zum Absenden, Shift+Enter für neue Zeile" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:13px;"></textarea>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('delete-proj-btn').addEventListener('click', ()=>deleteProject(p.id));
+    document.getElementById('new-status-btn').addEventListener('click', ()=>{
+      const newKey = addCustomStatus();
+      if(newKey){ p.status = newKey; saveBoard(); render(); }
+    });
+    const showBtn = document.getElementById('show-sections-btn');
+    if(showBtn) showBtn.addEventListener('click', ()=>{ forceShowSections = true; render(); });
+    const hideBtn = document.getElementById('hide-sections-btn');
+    if(hideBtn) hideBtn.addEventListener('click', ()=>{ forceShowSections = false; render(); });
+    const cInput = document.getElementById('new-comment-input');
+    cInput.addEventListener('keydown', e=>{
+      if(e.key==='Enter' && !e.shiftKey){
+        e.preventDefault();
+        addComment(p.id, cInput.value); cInput.value='';
+      }
+    });
+
+    panel.querySelectorAll('textarea.autosize').forEach(autoResize);
+  }
+
+  function autoResize(el){
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  document.getElementById('detail-panel').addEventListener('input', e=>{
+    if(e.target.classList && e.target.classList.contains('autosize')){
+      autoResize(e.target);
+    }
+  });
+
+  /* ---------------- Delegated events on detail panel ---------------- */
+  document.getElementById('detail-panel').addEventListener('change', e=>{
+    const path = e.target.dataset.path;
+    if(!path || !selectedId) return;
+    const p = getProject(selectedId);
+    const val = e.target.type==='checkbox' ? e.target.checked : e.target.value;
+    setPath(p, path, val);
+    saveBoard();
+    if(e.target.type === 'date') return; // Kein Re-Render nötig, verhindert Störungen bei der Eingabe
+    render();
+  });
+
+  document.getElementById('detail-panel').addEventListener('click', e=>{
+    const yn = e.target.closest('[data-yn]');
+    if(yn){
+      const wrap = e.target.closest('[data-ynpath]');
+      const path = wrap.dataset.ynpath;
+      setPath(getProject(selectedId), path, yn.dataset.yn);
+      saveBoard(); render();
+      return;
+    }
+    if(e.target.dataset.addReq){
+      addAnforderung(selectedId, e.target.dataset.addReq); return;
+    }
+    if(e.target.dataset.removeReq){
+      const [cat, idx] = e.target.dataset.removeReq.split(':');
+      removeAnforderung(selectedId, cat, parseInt(idx,10)); return;
+    }
+    if(e.target.dataset.addWeitere){
+      addWeiterePunkt(selectedId, e.target.dataset.addWeitere); return;
+    }
+    if(e.target.dataset.removeWeitere !== undefined){
+      removeWeiterePunkt(selectedId, parseInt(e.target.dataset.removeWeitere,10)); return;
+    }
+    if(e.target.dataset.addSfield){
+      const [section, typ] = e.target.dataset.addSfield.split('::');
+      addSectionField(selectedId, section, typ); return;
+    }
+    if(e.target.dataset.removeSfield){
+      const [section, idx] = e.target.dataset.removeSfield.split('::');
+      removeSectionField(selectedId, section, parseInt(idx,10)); return;
+    }
+    if(e.target.dataset.removeComment){
+      removeComment(selectedId, e.target.dataset.removeComment); return;
+    }
+    if(e.target.classList.contains('open-link-btn')){
+      const input = e.target.previousElementSibling;
+      if(input && input.value && input.value.trim()){
+        window.open(input.value.trim(), '_blank', 'noopener');
+      }
+      return;
+    }
+  });
+
+  /* ---------------- Global UI events ---------------- */
+  document.getElementById('add-proj-btn').addEventListener('click', addProject);
+  document.getElementById('search-input').addEventListener('input', e=>{
+    searchQuery = e.target.value; renderList();
+  });
+  document.getElementById('proj-items').addEventListener('click', e=>{
+    const item = e.target.closest('.proj-item');
+    if(item) selectProject(item.dataset.id);
+  });
+  document.getElementById('summary-grid').addEventListener('click', e=>{
+    const goto = e.target.closest('[data-goto]');
+    if(goto){ selectProject(goto.dataset.goto); return; }
+    const card = e.target.closest('.summary-card');
+    if(card){ const key = card.dataset.summary; openSummary[key] = !openSummary[key]; renderSummary(); }
+  });
+
+  document.getElementById('export-btn').addEventListener('click', ()=>{
+    const rows = state.projects.map(p=>({
+      'Adresse': p.adresse, 'ZIP, Ort': p.zip, 'Parzelle': p.parzelle,
+      'Grundbuchamt': p.grundbuchamt, 'Notariat': p.notariat, 'Leistung': p.leistung,
+      'Dauervertrag Beginn': p.dauervertragStart, 'Dauervertrag Ende': p.dauervertragEnde, 'Kunde (=Grundeigentümer)': p.kunde,
+      'Status': statusLabelFor(p.status),
+      'Startmail': p.workflow.startmail,
+      'Eigentümer informiert': p.workflow.eigentuemerInformieren.status,
+      'Kunde E-Mail': p.workflow.eigentuemerInformieren.email,
+      'Kunde Kontakt': p.workflow.eigentuemerInformieren.kontakt,
+      'Dienstbarkeitstyp': [
+        p.workflow.dienstbarkeitstyp.persoenlich ? 'Persönliche Dienstbarkeit':'',
+        p.workflow.dienstbarkeitstyp.baurecht ? 'Baurecht':''
+      ].filter(Boolean).join(' / '),
+      'PV Plan': p.workflow.plaene.PV.status,
+      'Heizung Plan': p.workflow.plaene.Heizung.status,
+      'Batterie Plan': p.workflow.plaene.Batterie.status,
+      'Kommentare': p.comments.map(c=>`[${c.when}] ${c.author}: ${c.text}`).join(' | ')
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dienstbarkeiten');
+    XLSX.writeFile(wb, 'dienstbarkeiten-export-' + new Date().toISOString().slice(0,10) + '.xlsx');
+  });
+
+  function render(){
+    renderSummary();
+    renderList();
+    renderDetail();
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(e.code === 'Space' || e.key === ' '){
+      const ae = document.activeElement;
+      if(!ae || ae === document.body || ae.tagName === 'HTML'){
+        e.preventDefault();
+      }
+    }
+  });
+
+  initAuth();
+})();
+</script>
+</body>
+</html>
