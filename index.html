@@ -387,7 +387,8 @@
     return {
       id: uid(),
       adresse: adresse || 'Neues Projekt',
-      zip:'', parzelle:'', grundbuchamt:'', notariat:'', leistung:'', dauervertragStart:'', dauervertragEnde:'', kunde:'',
+      zip:'', parzelle:'', grundbuchamt:'', notariat:'', leistung:'', dauervertragStart:'', dauervertragEnde:'',
+      dauervertragPVStart:'', dauervertragPVEnde:'', dauervertragHeizungStart:'', dauervertragHeizungEnde:'', kunde:'',
       hasPV:true, hasHeizung:true, hasBatterie:true,
       status:'offen',
       workflow:{
@@ -854,6 +855,21 @@
     `);
   }
 
+  function migrateDauervertragIfNeeded(proj){
+    if(proj.dauervertragStart || proj.dauervertragEnde){
+      if(!proj.dauervertragPVStart && !proj.dauervertragPVEnde && proj.hasPV !== false){
+        proj.dauervertragPVStart = proj.dauervertragStart || '';
+        proj.dauervertragPVEnde = proj.dauervertragEnde || '';
+      } else if(!proj.dauervertragHeizungStart && !proj.dauervertragHeizungEnde && proj.hasHeizung !== false){
+        proj.dauervertragHeizungStart = proj.dauervertragStart || '';
+        proj.dauervertragHeizungEnde = proj.dauervertragEnde || '';
+      }
+      proj.dauervertragStart = '';
+      proj.dauervertragEnde = '';
+      saveBoard();
+    }
+  }
+
   function migrateNachtragIfNeeded(proj){
     let changed = false;
     PLAN_CATEGORIES.forEach(cat=>{
@@ -884,6 +900,7 @@
     }
     const p = getProject(selectedId);
     if(!p){ selectedId=null; panel.innerHTML='<div class="empty-detail">Projekt nicht gefunden.</div>'; return; }
+    migrateDauervertragIfNeeded(p);
     migrateNachtragIfNeeded(p);
     const wf = p.workflow;
 
@@ -964,9 +981,19 @@
             <div class="field-row"><label>Notariat</label><textarea class="autosize" rows="1" data-path="notariat">${escapeHtml(p.notariat)}</textarea></div>
             <div class="field-row"><label>Leistung</label><textarea class="autosize" rows="1" data-path="leistung">${escapeHtml(p.leistung)}</textarea></div>
           </div>
+          ${p.hasPV!==false ? `
+            <div class="grid2">
+              <div class="field-row"><label>Dauervertrag – Beginn (PV)</label><input type="date" data-path="dauervertragPVStart" value="${escapeAttr(p.dauervertragPVStart)}"></div>
+              <div class="field-row"><label>Dauervertrag – Ende (PV)</label><input type="date" data-path="dauervertragPVEnde" value="${escapeAttr(p.dauervertragPVEnde)}"></div>
+            </div>
+          ` : ''}
+          ${p.hasHeizung!==false ? `
+            <div class="grid2">
+              <div class="field-row"><label>Dauervertrag – Beginn (Heizung)</label><input type="date" data-path="dauervertragHeizungStart" value="${escapeAttr(p.dauervertragHeizungStart)}"></div>
+              <div class="field-row"><label>Dauervertrag – Ende (Heizung)</label><input type="date" data-path="dauervertragHeizungEnde" value="${escapeAttr(p.dauervertragHeizungEnde)}"></div>
+            </div>
+          ` : ''}
           <div class="grid3">
-            <div class="field-row"><label>Dauervertrag – Beginn</label><input type="date" data-path="dauervertragStart" value="${escapeAttr(p.dauervertragStart)}"></div>
-            <div class="field-row"><label>Dauervertrag – Ende</label><input type="date" data-path="dauervertragEnde" value="${escapeAttr(p.dauervertragEnde)}"></div>
             <div class="field-row"><label>Kunde (=Grundeigentümer)</label><textarea class="autosize" rows="1" data-path="kunde">${escapeHtml(p.kunde)}</textarea></div>
             <div class="field-row"><label>Status</label>
               <div style="display:flex;gap:6px;align-items:center;">
@@ -1136,7 +1163,9 @@
     const rows = state.projects.map(p=>({
       'Adresse': p.adresse, 'ZIP, Ort': p.zip, 'Parzelle': p.parzelle,
       'Grundbuchamt': p.grundbuchamt, 'Notariat': p.notariat, 'Leistung': p.leistung,
-      'Dauervertrag Beginn': p.dauervertragStart, 'Dauervertrag Ende': p.dauervertragEnde, 'Kunde (=Grundeigentümer)': p.kunde,
+      'Dauervertrag PV Beginn': p.dauervertragPVStart, 'Dauervertrag PV Ende': p.dauervertragPVEnde,
+      'Dauervertrag Heizung Beginn': p.dauervertragHeizungStart, 'Dauervertrag Heizung Ende': p.dauervertragHeizungEnde,
+      'Kunde (=Grundeigentümer)': p.kunde,
       'Status': statusLabelFor(p.status),
       'Startmail': p.workflow.startmail,
       'Eigentümer informiert': p.workflow.eigentuemerInformieren.status,
