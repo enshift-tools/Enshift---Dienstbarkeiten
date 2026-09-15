@@ -387,7 +387,7 @@
     return {
       id: uid(),
       adresse: adresse || 'Neues Projekt',
-      zip:'', parzelle:'', grundbuchamt:'', notariat:'', leistung:'', dauervertragStart:'', dauervertragEnde:'',
+      zip:'', parzelle:'', grundbuchamt:'', notariat:'', leistung:'', leistungHeizung:'', leistungBatterie:'', dauervertragStart:'', dauervertragEnde:'',
       dauervertragPVStart:'', dauervertragPVEnde:'', dauervertragHeizungStart:'', dauervertragHeizungEnde:'', kunde:'',
       hasPV:true, hasHeizung:true, hasBatterie:true,
       status:'offen',
@@ -976,10 +976,14 @@
             <div class="field-row"><label>ZIP, Ort</label><input type="text" data-path="zip" value="${escapeAttr(p.zip)}"></div>
             <div class="field-row"><label>Parzelle</label><input type="text" data-path="parzelle" value="${escapeAttr(p.parzelle)}"></div>
           </div>
-          <div class="grid3">
+          <div class="grid2">
             <div class="field-row"><label>Grundbuchamt</label><textarea class="autosize" rows="1" data-path="grundbuchamt">${escapeHtml(p.grundbuchamt)}</textarea></div>
             <div class="field-row"><label>Notariat</label><textarea class="autosize" rows="1" data-path="notariat">${escapeHtml(p.notariat)}</textarea></div>
-            <div class="field-row"><label>Leistung</label><textarea class="autosize" rows="1" data-path="leistung">${escapeHtml(p.leistung)}</textarea></div>
+          </div>
+          <div class="grid3">
+            ${p.hasPV!==false ? `<div class="field-row"><label>Leistung (PV)</label><textarea class="autosize" rows="1" data-path="leistung">${escapeHtml(p.leistung)}</textarea></div>` : ''}
+            ${p.hasHeizung!==false ? `<div class="field-row"><label>Leistung (Heizung)</label><textarea class="autosize" rows="1" data-path="leistungHeizung">${escapeHtml(p.leistungHeizung)}</textarea></div>` : ''}
+            ${p.hasBatterie!==false ? `<div class="field-row"><label>Leistung (Batterie)</label><textarea class="autosize" rows="1" data-path="leistungBatterie">${escapeHtml(p.leistungBatterie)}</textarea></div>` : ''}
           </div>
           ${p.hasPV!==false ? `
             <div class="grid2">
@@ -1162,7 +1166,8 @@
   document.getElementById('export-btn').addEventListener('click', ()=>{
     const rows = state.projects.map(p=>({
       'Adresse': p.adresse, 'ZIP, Ort': p.zip, 'Parzelle': p.parzelle,
-      'Grundbuchamt': p.grundbuchamt, 'Notariat': p.notariat, 'Leistung': p.leistung,
+      'Grundbuchamt': p.grundbuchamt, 'Notariat': p.notariat,
+      'Leistung (PV)': p.leistung, 'Leistung (Heizung)': p.leistungHeizung, 'Leistung (Batterie)': p.leistungBatterie,
       'Dauervertrag PV Beginn': p.dauervertragPVStart, 'Dauervertrag PV Ende': p.dauervertragPVEnde,
       'Dauervertrag Heizung Beginn': p.dauervertragHeizungStart, 'Dauervertrag Heizung Ende': p.dauervertragHeizungEnde,
       'Kunde (=Grundeigentümer)': p.kunde,
