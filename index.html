@@ -388,7 +388,8 @@
       id: uid(),
       adresse: adresse || 'Neues Projekt',
       zip:'', parzelle:'', grundbuchamt:'', notariat:'', leistung:'', leistungHeizung:'', leistungBatterie:'', dauervertragStart:'', dauervertragEnde:'',
-      dauervertragPVStart:'', dauervertragPVEnde:'', dauervertragHeizungStart:'', dauervertragHeizungEnde:'', kunde:'',
+      dauervertragPVStart:'', dauervertragPVEnde:'', dauervertragHeizungStart:'', dauervertragHeizungEnde:'',
+      dauervertragBatterieStart:'', dauervertragBatterieEnde:'', kunde:'',
       hasPV:true, hasHeizung:true, hasBatterie:true,
       status:'offen',
       workflow:{
@@ -997,6 +998,12 @@
               <div class="field-row"><label>Dauervertrag – Ende (Heizung)</label><input type="date" data-path="dauervertragHeizungEnde" value="${escapeAttr(p.dauervertragHeizungEnde)}"></div>
             </div>
           ` : ''}
+          ${p.hasBatterie!==false ? `
+            <div class="grid2">
+              <div class="field-row"><label>Dauervertrag – Beginn (BT)</label><input type="date" data-path="dauervertragBatterieStart" value="${escapeAttr(p.dauervertragBatterieStart)}"></div>
+              <div class="field-row"><label>Dauervertrag – Ende (BT)</label><input type="date" data-path="dauervertragBatterieEnde" value="${escapeAttr(p.dauervertragBatterieEnde)}"></div>
+            </div>
+          ` : ''}
           <div class="grid3">
             <div class="field-row"><label>Kunde (=Grundeigentümer)</label><textarea class="autosize" rows="1" data-path="kunde">${escapeHtml(p.kunde)}</textarea></div>
             <div class="field-row"><label>Status</label>
@@ -1170,6 +1177,7 @@
       'Leistung (PV)': p.leistung, 'Leistung (Heizung)': p.leistungHeizung, 'Leistung (Batterie)': p.leistungBatterie,
       'Dauervertrag PV Beginn': p.dauervertragPVStart, 'Dauervertrag PV Ende': p.dauervertragPVEnde,
       'Dauervertrag Heizung Beginn': p.dauervertragHeizungStart, 'Dauervertrag Heizung Ende': p.dauervertragHeizungEnde,
+      'Dauervertrag Batterie Beginn': p.dauervertragBatterieStart, 'Dauervertrag Batterie Ende': p.dauervertragBatterieEnde,
       'Kunde (=Grundeigentümer)': p.kunde,
       'Status': statusLabelFor(p.status),
       'Startmail': p.workflow.startmail,
