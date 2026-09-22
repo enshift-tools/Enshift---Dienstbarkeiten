@@ -397,7 +397,7 @@
         eigentuemerInformieren:{ status:'noch_nicht', email:'', kontakt:'' },
         vollmacht:{ vollmachtgeber: emptyVollmachtPerson(), bevollmaechtigte: emptyVollmachtPerson() },
         dienstbarkeitstyp:{ persoenlich:false, baurecht:false, kommentar:'' },
-        dienstbarkeitsvertrag:{ entwurfErstellt:'noch_nicht', entwurfDatum:'', entwurfLink:'', beurkundungstermin:'noch_nicht', beurkundungsDatum:'', vertragLink:'' },
+        dienstbarkeitsvertrag:{ PV: emptyDBVertrag(), Heizung: emptyDBVertrag(), Batterie: emptyDBVertrag() },
         plaene: Object.fromEntries(PLAN_CATEGORIES.map(c=>[c,{status:'', link:'', anforderungen:[]}])),
         vertraege: Object.fromEntries(PLAN_CATEGORIES.map(c=>{
           const obj = {};
@@ -821,25 +821,41 @@
       </div>`;
   }
 
+  function emptyDBVertrag(){
+    return { entwurfErstellt:'noch_nicht', entwurfDatum:'', entwurfLink:'', beurkundungstermin:'noch_nicht', beurkundungsDatum:'', vertragLink:'', vertragBeurkundet:'noch_nicht' };
+  }
   function renderDienstbarkeitsvertrag(proj){
-    if(!proj.workflow.dienstbarkeitsvertrag){
-      proj.workflow.dienstbarkeitsvertrag = { entwurfErstellt:'noch_nicht', entwurfDatum:'', entwurfLink:'', beurkundungstermin:'noch_nicht', beurkundungsDatum:'', vertragLink:'' };
+    const wf = proj.workflow;
+    // Migration: old flat single-block structure -> nested per technology, kept under PV
+    if(wf.dienstbarkeitsvertrag && wf.dienstbarkeitsvertrag.entwurfErstellt !== undefined){
+      const old = wf.dienstbarkeitsvertrag;
+      wf.dienstbarkeitsvertrag = { PV: old, Heizung: emptyDBVertrag(), Batterie: emptyDBVertrag() };
+      saveBoard();
     }
-    const d = proj.workflow.dienstbarkeitsvertrag;
-    return `
-      <div class="subblock">
-        <h4>Dienstbarkeitsvertrag</h4>
-        <div class="field-row"><label>Entwurf erstellt</label>${ynToggle('workflow.dienstbarkeitsvertrag.entwurfErstellt', d.entwurfErstellt)}</div>
-        <div class="grid2" style="margin-top:8px;">
-          <div class="field-row" style="margin:0;"><label>Datum des letzten Entwurfs</label><input type="date" data-path="workflow.dienstbarkeitsvertrag.entwurfDatum" value="${escapeAttr(d.entwurfDatum)}"></div>
-          <div class="field-row" style="margin:0;"><label>Link zum Entwurf</label>${linkFieldHtml('workflow.dienstbarkeitsvertrag.entwurfLink', d.entwurfLink)}</div>
-        </div>
-        <div class="field-row" style="margin-top:14px;"><label>Beurkundungstermin</label>${ynToggle('workflow.dienstbarkeitsvertrag.beurkundungstermin', d.beurkundungstermin)}</div>
-        <div class="grid2" style="margin-top:8px;">
-          <div class="field-row" style="margin:0;"><label>Datum des Beurkundungstermins</label><input type="date" data-path="workflow.dienstbarkeitsvertrag.beurkundungsDatum" value="${escapeAttr(d.beurkundungsDatum)}"></div>
-          <div class="field-row" style="margin:0;"><label>Link zum finalen Vertrag</label>${linkFieldHtml('workflow.dienstbarkeitsvertrag.vertragLink', d.vertragLink)}</div>
-        </div>
-      </div>`;
+    if(!wf.dienstbarkeitsvertrag){
+      wf.dienstbarkeitsvertrag = { PV: emptyDBVertrag(), Heizung: emptyDBVertrag(), Batterie: emptyDBVertrag() };
+    }
+    return PLAN_CATEGORIES.map(cat=>{
+      if(proj[TECH_FLAG[cat]] === false) return '';
+      if(!wf.dienstbarkeitsvertrag[cat]) wf.dienstbarkeitsvertrag[cat] = emptyDBVertrag();
+      const d = wf.dienstbarkeitsvertrag[cat];
+      const base = `workflow.dienstbarkeitsvertrag.${cat}`;
+      return `
+        <div class="subblock">
+          <h4>DB-Vertrag ${cat}</h4>
+          <div class="field-row"><label>Entwurf erstellt</label>${ynToggle(base+'.entwurfErstellt', d.entwurfErstellt)}</div>
+          <div class="grid2" style="margin-top:8px;">
+            <div class="field-row" style="margin:0;"><label>Datum des letzten Entwurfs</label><input type="date" data-path="${base}.entwurfDatum" value="${escapeAttr(d.entwurfDatum)}"></div>
+            <div class="field-row" style="margin:0;"><label>Link zum Entwurf</label>${linkFieldHtml(base+'.entwurfLink', d.entwurfLink)}</div>
+          </div>
+          <div class="field-row" style="margin-top:14px;"><label>Beurkundungstermin</label>${ynToggle(base+'.beurkundungstermin', d.beurkundungstermin)}</div>
+          <div class="grid2" style="margin-top:8px;">
+            <div class="field-row" style="margin:0;"><label>Datum des Beurkundungstermins</label><input type="date" data-path="${base}.beurkundungsDatum" value="${escapeAttr(d.beurkundungsDatum)}"></div>
+            <div class="field-row" style="margin:0;"><label>Link zum finalen Vertrag</label>${linkFieldHtml(base+'.vertragLink', d.vertragLink)}</div>
+          </div>
+          <div class="field-row" style="margin-top:14px;"><label>Finaler Vertrag beurkundet</label>${ynToggle(base+'.vertragBeurkundet', d.vertragBeurkundet)}</div>
+        </div>`;
+    }).join('');
   }
 
   function renderWeiterePunkte(proj){
